@@ -25,21 +25,24 @@ except ImportError:
     from discord.ext import commands
     from flask import Flask
 
+# --- FLASK WEB SUNUCUSU (RENDER UYUMLU) ---
 web_app = Flask('')
+
 @web_app.route('/')
 def home():
     return "Guard Bot v9 Ultimate 24/7 Aktif"
 
 def run_web():
+    port = int(os.environ.get("PORT", 8080))
     try:
-        web_app.run(host='0.0.0.0', port=8080, debug=False, use_reloader=False)
-    except Exception:
-        pass
+        web_app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
+    except Exception as e:
+        print(f"Web server hatasi: {e}")
 
 threading.Thread(target=run_web, daemon=True).start()
 
+# --- BOT AYARLARI ---
 BOT_TOKEN = "MTU2MTQwOTMxNzM2ODg5MzQ5Mg.GoEXUT.tduv5is-eBDVVmtaYMZd9sOdkY323dgrqF3NO0"
-
 TARGET_GUILD_ID = 1558605340398845994
 CONTROL_CHANNEL_ID = 1561422691527827476
 AUTHORIZED_USERNAME = "flex.c0meback"
@@ -58,7 +61,6 @@ guard_settings = {
 whitelist = set()
 
 def is_authorized(user, guild):
-    # Kullanici Sunucu Sahibi mi (Tac Hesabi) veya 'flex.c0meback' mi?
     return user == guild.owner or user.name.lower() == AUTHORIZED_USERNAME.lower()
 
 def main():
