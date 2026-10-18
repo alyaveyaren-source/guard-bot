@@ -7,12 +7,6 @@ import io
 from collections import defaultdict
 import datetime
 
-class QuietWriter(io.StringIO):
-    def write(self, x):
-        pass
-
-sys.stderr = QuietWriter()
-
 try:
     import discord
     from discord import app_commands
@@ -25,19 +19,16 @@ except ImportError:
     from discord.ext import commands
     from flask import Flask
 
-# --- FLASK WEB SUNUCUSU (RENDER UYUMLU) ---
-web_app = Flask('')
+# --- RENDER UYUMLU FLASK SUNUCUSU ---
+web_app = Flask(__name__)
 
 @web_app.route('/')
 def home():
     return "Guard Bot v9 Ultimate 24/7 Aktif"
 
 def run_web():
-    port = int(os.environ.get("PORT", 8080))
-    try:
-        web_app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
-    except Exception as e:
-        print(f"Web server hatasi: {e}")
+    port = int(os.environ.get("PORT", 10000))
+    web_app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
 threading.Thread(target=run_web, daemon=True).start()
 
@@ -64,9 +55,6 @@ def is_authorized(user, guild):
     return user == guild.owner or user.name.lower() == AUTHORIZED_USERNAME.lower()
 
 def main():
-    target_guild_id = TARGET_GUILD_ID
-    control_channel_id = CONTROL_CHANNEL_ID
-
     intents = discord.Intents.default()
     intents.guilds = True
     intents.messages = True
@@ -80,9 +68,6 @@ def main():
     bot.remove_command("help")
 
     ALLOWED_ROLES = ["BOTLOADER", "Z1RVEDEYİZ", "JAZ", "J", "BOENQUE"]
-    TARGET_GUILD = target_guild_id
-    CONTROL_CHANNEL = control_channel_id
-    
     guild_vanity_urls = {}
     auto_role_data = {}
     link_warnings = defaultdict(int)
@@ -145,7 +130,7 @@ def main():
     async def on_ready():
         print(f"\n[BASARILI] Guard v9 Ultimate Aktif: {bot.user.name}")
         for guild in bot.guilds:
-            if guild.id != TARGET_GUILD:
+            if guild.id != TARGET_GUILD_ID:
                 try:
                     await guild.leave()
                 except Exception:
@@ -159,12 +144,12 @@ def main():
                 except Exception:
                     pass
 
-        ctrl_channel = bot.get_channel(CONTROL_CHANNEL)
+        ctrl_channel = bot.get_channel(CONTROL_CHANNEL_ID)
         if ctrl_channel:
             try:
                 await ctrl_channel.send("AKTİF")
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Kontrol kanalina mesaj atilamadi: {e}")
 
         try:
             synced = await bot.tree.sync()
@@ -176,7 +161,7 @@ def main():
 
     @bot.event
     async def on_guild_join(guild):
-        if guild.id != TARGET_GUILD:
+        if guild.id != TARGET_GUILD_ID:
             try:
                 await guild.leave()
             except Exception:
@@ -184,7 +169,7 @@ def main():
 
     @bot.event
     async def on_member_join(member):
-        if member.guild.id != TARGET_GUILD:
+        if member.guild.id != TARGET_GUILD_ID:
             return
 
         if member.bot and guard_settings["bot_koruma"]:
@@ -212,7 +197,7 @@ def main():
 
     @bot.event
     async def on_guild_update(before, after):
-        if after.id != TARGET_GUILD or not guard_settings["url_koruma"]:
+        if after.id != TARGET_GUILD_ID or not guard_settings["url_koruma"]:
             return
         if before.vanity_url_code != after.vanity_url_code:
             old_code = guild_vanity_urls.get(after.id, before.vanity_url_code)
@@ -230,7 +215,7 @@ def main():
 
     @bot.event
     async def on_guild_channel_create(channel):
-        if channel.guild.id != TARGET_GUILD or not guard_settings["kanal_koruma"]:
+        if channel.guild.id != TARGET_GUILD_ID or not guard_settings["kanal_koruma"]:
             return
         guild = channel.guild
         async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.channel_create):
@@ -246,7 +231,7 @@ def main():
 
     @bot.event
     async def on_guild_channel_delete(channel):
-        if channel.guild.id != TARGET_GUILD or not guard_settings["kanal_koruma"]:
+        if channel.guild.id != TARGET_GUILD_ID or not guard_settings["kanal_koruma"]:
             return
         guild = channel.guild
         async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.channel_delete):
@@ -265,7 +250,7 @@ def main():
 
     @bot.event
     async def on_guild_role_create(role):
-        if role.guild.id != TARGET_GUILD or not guard_settings["rol_koruma"]:
+        if role.guild.id != TARGET_GUILD_ID or not guard_settings["rol_koruma"]:
             return
         guild = role.guild
         async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.role_create):
@@ -281,7 +266,7 @@ def main():
 
     @bot.event
     async def on_guild_role_delete(role):
-        if role.guild.id != TARGET_GUILD or not guard_settings["rol_koruma"]:
+        if role.guild.id != TARGET_GUILD_ID or not guard_settings["rol_koruma"]:
             return
         guild = role.guild
         async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.role_delete):
@@ -367,13 +352,13 @@ def main():
 
     @bot.event
     async def on_message(message):
-        if not message.guild or message.guild.id != TARGET_GUILD or message.author.bot:
+        if not message.guild or message.guild.id != TARGET_GUILD_ID or message.author.bot:
             return
 
         content_lower = message.content.lower()
 
         if content_lower == ".panel":
-            if message.channel.id != CONTROL_CHANNEL:
+            if message.channel.id != CONTROL_CHANNEL_ID:
                 await message.delete()
                 return
             
@@ -405,7 +390,7 @@ def main():
             return
 
         if content_lower == ".komutlar":
-            if message.channel.id != CONTROL_CHANNEL:
+            if message.channel.id != CONTROL_CHANNEL_ID:
                 await message.delete()
                 return
 
@@ -492,7 +477,7 @@ def main():
 
     @bot.tree.command(name="ban", description="Kullaniciyi sunucudan banlar.")
     async def slash_ban(interaction: discord.Interaction, kullanici: discord.Member, sebep: str = "Sebep belirtilmedi"):
-        if interaction.guild.id != TARGET_GUILD or not check_permissions(interaction.user):
+        if interaction.guild.id != TARGET_GUILD_ID or not check_permissions(interaction.user):
             await interaction.response.send_message("Yetkiniz yetersiz!", ephemeral=True)
             return
         try:
@@ -504,7 +489,7 @@ def main():
 
     @bot.tree.command(name="unban", description="Kullanicinin yasaklamasini ID uzerinden kaldirir.")
     async def slash_unban(interaction: discord.Interaction, kullanici_id: str):
-        if interaction.guild.id != TARGET_GUILD or not check_permissions(interaction.user):
+        if interaction.guild.id != TARGET_GUILD_ID or not check_permissions(interaction.user):
             await interaction.response.send_message("Yetkiniz yetersiz!", ephemeral=True)
             return
         try:
@@ -517,7 +502,7 @@ def main():
 
     @bot.tree.command(name="kick", description="Kullaniciyi sunucudan atar.")
     async def slash_kick(interaction: discord.Interaction, kullanici: discord.Member, sebep: str = "Sebep belirtilmedi"):
-        if interaction.guild.id != TARGET_GUILD or not check_permissions(interaction.user):
+        if interaction.guild.id != TARGET_GUILD_ID or not check_permissions(interaction.user):
             await interaction.response.send_message("Yetkiniz yetersiz!", ephemeral=True)
             return
         try:
@@ -529,7 +514,7 @@ def main():
 
     @bot.tree.command(name="mute", description="Kullaniciya timeout (susturma) uygular.")
     async def slash_mute(interaction: discord.Interaction, kullanici: discord.Member, dakika: int, sebep: str = "Sebep belirtilmedi"):
-        if interaction.guild.id != TARGET_GUILD or not check_permissions(interaction.user):
+        if interaction.guild.id != TARGET_GUILD_ID or not check_permissions(interaction.user):
             await interaction.response.send_message("Yetkiniz yetersiz!", ephemeral=True)
             return
         try:
@@ -542,7 +527,7 @@ def main():
 
     @bot.tree.command(name="unmute", description="Kullanicinin timeout cezasini kaldirir.")
     async def slash_unmute(interaction: discord.Interaction, kullanici: discord.Member):
-        if interaction.guild.id != TARGET_GUILD or not check_permissions(interaction.user):
+        if interaction.guild.id != TARGET_GUILD_ID or not check_permissions(interaction.user):
             await interaction.response.send_message("Yetkiniz yetersiz!", ephemeral=True)
             return
         try:
@@ -554,7 +539,7 @@ def main():
 
     @bot.tree.command(name="kilitle", description="Kanali varsayilan üyelere mesaja kapatir.")
     async def slash_kilitle(interaction: discord.Interaction):
-        if interaction.guild.id != TARGET_GUILD or not check_permissions(interaction.user):
+        if interaction.guild.id != TARGET_GUILD_ID or not check_permissions(interaction.user):
             await interaction.response.send_message("Yetkiniz yetersiz!", ephemeral=True)
             return
         channel = interaction.channel
@@ -569,7 +554,7 @@ def main():
 
     @bot.tree.command(name="kilit-ac", description="Kilitli kanali mesaja tekrar acar.")
     async def slash_kilit_ac(interaction: discord.Interaction):
-        if interaction.guild.id != TARGET_GUILD or not check_permissions(interaction.user):
+        if interaction.guild.id != TARGET_GUILD_ID or not check_permissions(interaction.user):
             await interaction.response.send_message("Yetkiniz yetersiz!", ephemeral=True)
             return
         channel = interaction.channel
@@ -584,7 +569,7 @@ def main():
 
     @bot.tree.command(name="sil", description="Belirtilen miktarda mesaji kanaldan siler.")
     async def slash_sil(interaction: discord.Interaction, adet: int):
-        if interaction.guild.id != TARGET_GUILD or not check_permissions(interaction.user):
+        if interaction.guild.id != TARGET_GUILD_ID or not check_permissions(interaction.user):
             await interaction.response.send_message("Yetkiniz yetersiz!", ephemeral=True)
             return
         try:
@@ -596,7 +581,7 @@ def main():
 
     @bot.tree.command(name="yavas-mod", description="Kanaldaki mesaj gonderme yavas mod suresini ayarlar.")
     async def slash_yavas_mod(interaction: discord.Interaction, saniye: int):
-        if interaction.guild.id != TARGET_GUILD or not check_permissions(interaction.user):
+        if interaction.guild.id != TARGET_GUILD_ID or not check_permissions(interaction.user):
             await interaction.response.send_message("Yetkiniz yetersiz!", ephemeral=True)
             return
         try:
@@ -607,7 +592,7 @@ def main():
 
     @bot.tree.command(name="rolver", description="Kullaniciya rol ekler.")
     async def slash_rolver(interaction: discord.Interaction, kullanici: discord.Member, rol: discord.Role):
-        if interaction.guild.id != TARGET_GUILD or not check_permissions(interaction.user):
+        if interaction.guild.id != TARGET_GUILD_ID or not check_permissions(interaction.user):
             await interaction.response.send_message("Yetkiniz yetersiz!", ephemeral=True)
             return
         try:
@@ -619,7 +604,7 @@ def main():
 
     @bot.tree.command(name="rolal", description="Kullanicidan rol alir.")
     async def slash_rolal(interaction: discord.Interaction, kullanici: discord.Member, rol: discord.Role):
-        if interaction.guild.id != TARGET_GUILD or not check_permissions(interaction.user):
+        if interaction.guild.id != TARGET_GUILD_ID or not check_permissions(interaction.user):
             await interaction.response.send_message("Yetkiniz yetersiz!", ephemeral=True)
             return
         try:
@@ -631,7 +616,7 @@ def main():
 
     @bot.tree.command(name="toplu-rolver", description="Sunucudaki insan üyelere toplu rol verir.")
     async def slash_toplu_rolver(interaction: discord.Interaction, rol: discord.Role):
-        if interaction.guild.id != TARGET_GUILD or not is_authorized(interaction.user, interaction.guild):
+        if interaction.guild.id != TARGET_GUILD_ID or not is_authorized(interaction.user, interaction.guild):
             await interaction.response.send_message("Bu komut sadece Tac Sahibi veya flex.c0meback tarafindan kullanilabilir!", ephemeral=True)
             return
         await interaction.response.send_message("Toplu rol verme islemi baslatildi...", ephemeral=True)
@@ -647,7 +632,7 @@ def main():
 
     @bot.tree.command(name="toplu-rolal", description="Sunucudaki tum üyelerden belirtilen rolü alir.")
     async def slash_toplu_rolal(interaction: discord.Interaction, rol: discord.Role):
-        if interaction.guild.id != TARGET_GUILD or not is_authorized(interaction.user, interaction.guild):
+        if interaction.guild.id != TARGET_GUILD_ID or not is_authorized(interaction.user, interaction.guild):
             await interaction.response.send_message("Bu komut sadece Tac Sahibi veya flex.c0meback tarafindan kullanilabilir!", ephemeral=True)
             return
         await interaction.response.send_message("Toplu rol alma islemi baslatildi...", ephemeral=True)
@@ -663,7 +648,7 @@ def main():
 
     @bot.tree.command(name="duyuru", description="Embed formatinda ciddi duyuru metni yayinlar.")
     async def slash_duyuru(interaction: discord.Interaction, baslik: str, mesaj: str):
-        if interaction.guild.id != TARGET_GUILD or not check_permissions(interaction.user):
+        if interaction.guild.id != TARGET_GUILD_ID or not check_permissions(interaction.user):
             await interaction.response.send_message("Yetkiniz yetersiz!", ephemeral=True)
             return
         embed = discord.Embed(title=baslik, description=mesaj, color=discord.Color.dark_gray())
@@ -693,7 +678,7 @@ def main():
 
     @bot.tree.command(name="whitelist-ekle", description="Kullaniciyi koruma istisnasina (whitelist) ekler.")
     async def slash_wl_ekle(interaction: discord.Interaction, kullanici: discord.Member):
-        if interaction.guild.id != TARGET_GUILD or not is_authorized(interaction.user, interaction.guild):
+        if interaction.guild.id != TARGET_GUILD_ID or not is_authorized(interaction.user, interaction.guild):
             await interaction.response.send_message("Sadece Tac Sahibi veya flex.c0meback kullanabilir!", ephemeral=True)
             return
         whitelist.add(kullanici.id)
@@ -701,7 +686,7 @@ def main():
 
     @bot.tree.command(name="whitelist-cikar", description="Kullaniciyi guvenli listeden cikarir.")
     async def slash_wl_cikar(interaction: discord.Interaction, kullanici: discord.Member):
-        if interaction.guild.id != TARGET_GUILD or not is_authorized(interaction.user, interaction.guild):
+        if interaction.guild.id != TARGET_GUILD_ID or not is_authorized(interaction.user, interaction.guild):
             await interaction.response.send_message("Sadece Tac Sahibi veya flex.c0meback kullanabilir!", ephemeral=True)
             return
         whitelist.discard(kullanici.id)
